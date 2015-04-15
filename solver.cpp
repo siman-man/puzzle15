@@ -118,15 +118,6 @@ struct Node{
   }
 };
 
-int goodPatternBoard[1][BOARD_SIZE] = {
-  {W,  W,  W,  W,  W, W,
-   W,  1,  2,  3,  4, W,
-   W,  5,  6,  7,  8, W,
-   W,  9, 10, 11, 12, W,
-   W, 13, 14, 15,  E, W,
-   W,  W,  W,  W,  W, W}
-};
-
 class Puzzle15{
   public:
     /*
@@ -172,10 +163,8 @@ class Puzzle15{
         for(int x = 1; x <= WIDTH; x++){
           int z = getZ(y,x);
 
-          if(board[z] == EMPTY) continue;
-
-          int dy = correctY[(int)board[z]];
-          int dx = correctX[(int)board[z]];
+          int dy = correctY[board[z]];
+          int dx = correctX[board[z]];
 
           dist += abs(y-dy) + abs(x-dx);
         }
