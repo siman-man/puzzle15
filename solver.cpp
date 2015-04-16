@@ -190,6 +190,14 @@ class Puzzle15{
       return true;
     }
 
+    bool checkUpperLine3(){
+      if(board[19] != 9) return false;
+      if(board[20] != 10) return false;
+      if(board[21] != 11) return false;
+      if(board[22] != 12) return false;
+      return true;
+    }
+
     bool checkLeftLine(){
       if(board[7] != 1) return false;
       if(board[13] != 5) return false;
@@ -301,29 +309,27 @@ class Puzzle15{
           value += 1000;
 
           if(checkUpperLine2()){
-            value += 500;
+            value += 1000;
 
             if(checkLeftLine2()){
-              value += 500;
+              value += 1000;
+
+              if(checkUpperLine3()){
+                value += 1000;
+              }
             }
           }else if(checkLeftLine2()){
-            value += 500;
+            value += 1000;
           }
-        }
-      }else if(checkLeftLine()){
-        value += 1000;
-
-        if(checkUpperLine()){
+        }else if(checkUpperLine2()){
           value += 1000;
 
-          if(checkUpperLine2()){
-            value += 500;
+          if(checkLeftLine()){
+            value += 1000;
 
             if(checkLeftLine2()){
-              value += 500;
+              value += 1000;
             }
-          }else if(checkLeftLine2()){
-            value += 500;
           }
         }
       }

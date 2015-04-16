@@ -11,6 +11,7 @@ task :solve do
 end
 
 task :check do
+  system("g++ -O2 -o solver solver.cpp") 
   system("./solver < test_case1.txt > result.txt")
   system("./solver < test_case2.txt >> result.txt")
   system("./solver < test_case3.txt >> result.txt")
