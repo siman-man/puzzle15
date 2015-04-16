@@ -110,11 +110,13 @@ struct Node{
   ull hashValue;
   int depth;
   int z;
+  int beforeZ;
   int board[BOARD_SIZE];
 
   Node(){
-    this->depth  = 0;
-    this->z      = UNKNOWN;
+    this->depth   = 0;
+    this->z       = UNKNOWN;
+    this->beforeZ = UNKNOWN;
   }
 };
 
@@ -133,9 +135,8 @@ class Puzzle15{
       // 完成形のハッシュ値を生成
       completeHash = getBoardHash();
 
-      showBoard();
-
       memcpy(board, input, sizeof(board));
+      showBoard();
     }
 
     /*
@@ -181,11 +182,27 @@ class Puzzle15{
       return true;
     }
 
+    bool checkUpperLine2(){
+      if(board[13] != 5) return false;
+      if(board[14] != 6) return false;
+      if(board[15] != 7) return false;
+      if(board[16] != 8) return false;
+      return true;
+    }
+
     bool checkLeftLine(){
       if(board[7] != 1) return false;
       if(board[13] != 5) return false;
       if(board[19] != 9) return false;
       if(board[25] != 13) return false;
+      return true;
+    }
+
+    bool checkLeftLine2(){
+      if(board[8] != 2) return false;
+      if(board[14] != 6) return false;
+      if(board[20] != 10) return false;
+      if(board[26] != 14) return false;
       return true;
     }
 
@@ -195,15 +212,25 @@ class Puzzle15{
      */
     int calcMD(){
       int dist = 0;
+      int ez = searchEmpty();
+      int ey = ez / B_WIDTH + 1;
+      int ex = ex % B_WIDTH + 1;
 
       for(int y = 1; y <= HEIGHT; y++){
         for(int x = 1; x <= WIDTH; x++){
           int z = getZ(y,x);
+          int num = board[z];
 
-          int dy = correctY[board[z]];
-          int dx = correctX[board[z]];
+          int dy = abs(y - correctY[num]);
+          int dx = abs(x - correctX[num]);
+          int ny = abs(ey - correctY[num]);
+          int nx = abs(ex - correctX[num]);
 
-          dist += abs(y-dy) + abs(x-dx);
+          if(num == 1 || num == 4 || num == 12){
+            dist += 2 * (dy*dy) + (dx*dx) + (ny + nx);
+          }else{
+            dist += (dy*dy) + (dx*dx) + (ny + nx);
+          }
         }
       }
 
@@ -260,11 +287,46 @@ class Puzzle15{
     int calcEval(){
       int value = 0;
 
-      value -= calcMD();
-      value -= calcND();
+      ull hash = getBoardHash();
 
-      if(checkUpperLine()) value += 100;
-      if(checkLeftLine()) value += 100;
+      if(hash == completeHash) return COMPLETE;
+
+      value -= calcMD();
+      //value -= calcND();
+
+      if(checkUpperLine()){
+        value += 1000;
+
+        if(checkLeftLine()){
+          value += 1000;
+
+          if(checkUpperLine2()){
+            value += 500;
+
+            if(checkLeftLine2()){
+              value += 500;
+            }
+          }else if(checkLeftLine2()){
+            value += 500;
+          }
+        }
+      }else if(checkLeftLine()){
+        value += 1000;
+
+        if(checkUpperLine()){
+          value += 1000;
+
+          if(checkUpperLine2()){
+            value += 500;
+
+            if(checkLeftLine2()){
+              value += 500;
+            }
+          }else if(checkLeftLine2()){
+            value += 500;
+          }
+        }
+      }
 
       return value;
     }
@@ -291,7 +353,9 @@ class Puzzle15{
      *   input: 初期盤面
      */
     vector<int> solve(int *input){
+      ull hash;
       vector<int> result;
+      vector<ull> mapHistory;
 
       init(input);
 
@@ -300,6 +364,11 @@ class Puzzle15{
 
       while(true){
         map<ull, bool> checkList;
+
+        for(int i = 0; i < moveCount-1; i++){
+          checkList[mapHistory[i]] = true;
+        }
+
         Node root = createNode();
 
         // 現在の盤面を保存
@@ -327,7 +396,7 @@ class Puzzle15{
             bestZ = node.z;
           }
 
-          ull hash = getBoardHash();
+          hash = getBoardHash();
 
           if(checkList[hash]) continue;
           checkList[hash] = true;
@@ -337,12 +406,16 @@ class Puzzle15{
 
             // 移動先が壁ならスキップ
             if(board[nz] == WALL) continue;
+            // 前の移動先と一緒であれば却下
+            if(node.beforeZ == nz) continue;
             if(node.z == UNKNOWN && nz == beforeEmpty) continue;
 
             moveBoard(nz);
 
             Node nnode = createNode();
             nnode.depth = node.depth + 1;
+            nnode.beforeZ = z;
+
             if(node.z == UNKNOWN){
               nnode.z = nz;
               que.push(nnode);
@@ -357,18 +430,20 @@ class Puzzle15{
 
         // 盤面を元に戻す
         memcpy(board, boardCopy, sizeof(boardCopy));
+        hash = getBoardHash();
+        mapHistory.push_back(hash);
 
         beforeEmpty = searchEmpty();
 
         if(bestZ == UNKNOWN){
-          fprintf(stderr,"Err!\n");
+          fprintf(stderr,"Err! maxValue = %d\n", maxValue);
           break;
         }
 
         fprintf(stderr,"bestZ = %d, num = %d\n", bestZ, board[bestZ]);
         result.push_back(board[bestZ]);
         moveBoard(bestZ);
-        ull hash = getBoardHash();
+        hash = getBoardHash();
 
         // 盤面が完成したらループから抜ける
         if(hash == completeHash){
@@ -379,7 +454,7 @@ class Puzzle15{
         moveCount++;
         //showBoard();
 
-        if(moveCount > 90) break;
+        //if(moveCount > 120) break;
       }
 
       fprintf(stderr,"move count = %d\n", moveCount);

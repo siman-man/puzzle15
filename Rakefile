@@ -3,7 +3,11 @@ task :default do
 end
 
 task :run do
-  system("a.exe < test_case3.txt")
+  system("./a.out < test_case3.txt")
+end
+
+task :solve do
+  system("./a.out < test_case4.txt")
 end
 
 task :test do
