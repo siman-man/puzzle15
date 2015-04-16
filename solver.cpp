@@ -32,7 +32,7 @@ const int WALL      = 17; // 壁
 const int STATE_NUM = 18; // 状態の数(0-17)
 
 const int UNKNOWN   = -1;       // 未定
-const int MAX_DEPTH = 12;       // 探索する深さの最大値
+const int MAX_DEPTH = 13;       // 探索する深さの最大値
 const int COMPLETE  = INT_MAX;  // 盤面完成
 
 unsigned long long xor128(){
@@ -136,7 +136,7 @@ class Puzzle15{
       completeHash = getBoardHash();
 
       memcpy(board, input, sizeof(board));
-      showBoard();
+      //showBoard();
     }
 
     /*
@@ -226,10 +226,10 @@ class Puzzle15{
           int ny = abs(ey - correctY[num]);
           int nx = abs(ex - correctX[num]);
 
-          if(num == 1 || num == 4 || num == 12){
-            dist += 2 * (dy*dy) + (dx*dx) + (ny + nx);
+          if(num == 1){
+            dist += 2 * (dy*dy) + (dx*dx) + (ny*ny + nx*nx);
           }else{
-            dist += (dy*dy) + (dx*dx) + (ny + nx);
+            dist += (dy*dy) + (dx*dx) + (ny*ny + nx*nx);
           }
         }
       }
@@ -394,6 +394,9 @@ class Puzzle15{
             maxValue = value;
             //fprintf(stderr,"Update maxValue = %d, z = %d, depth = %d\n", maxValue, node.z, node.depth);
             bestZ = node.z;
+          }else if(node.depth > 0 && maxValue > 0 && value < 0){
+            //fprintf(stderr,"diff maxValue = %d, value = %d\n", maxValue, value);
+            continue;
           }
 
           hash = getBoardHash();
@@ -430,15 +433,17 @@ class Puzzle15{
 
         // 盤面を元に戻す
         memcpy(board, boardCopy, sizeof(boardCopy));
-        hash = getBoardHash();
-        mapHistory.push_back(hash);
-
-        beforeEmpty = searchEmpty();
 
         if(bestZ == UNKNOWN){
           fprintf(stderr,"Err! maxValue = %d\n", maxValue);
+          showBoard();
+          moveCount = 9999;
           break;
         }
+
+        hash = getBoardHash();
+        mapHistory.push_back(hash);
+        beforeEmpty = searchEmpty();
 
         fprintf(stderr,"bestZ = %d, num = %d\n", bestZ, board[bestZ]);
         result.push_back(board[bestZ]);
@@ -457,8 +462,8 @@ class Puzzle15{
         //if(moveCount > 120) break;
       }
 
-      fprintf(stderr,"move count = %d\n", moveCount);
-      showBoard();
+      fprintf(stdout,"move_count:%d\n", moveCount);
+      //fprintf(stderr,"move count = %d\n", moveCount);
       return result;
     }
 
@@ -505,7 +510,7 @@ int main(){
   vector<int> answer = pz15.solve(input);
 
   for(int i = 0; i < answer.size(); i++){
-    cout << answer[i] << endl;
+    //cout << answer[i] << endl;
   }
 
   return 0;
