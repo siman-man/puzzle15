@@ -16,7 +16,7 @@ class Board
       board[y][x] = (num != 16)? num : '*'
     end
 
-    10.times do
+    400.times do
       d = rand(4)
 
       dy = y + DY[d]

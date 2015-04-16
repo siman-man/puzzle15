@@ -5,6 +5,7 @@
 #include <limits.h>
 #include <string>
 #include <string.h>
+#include <cstring>
 #include <sstream>
 #include <set>
 #include <cstdio>
@@ -31,7 +32,7 @@ const int WALL      = 17; // 壁
 const int STATE_NUM = 18; // 状態の数(0-17)
 
 const int UNKNOWN   = -1;       // 未定
-const int MAX_DEPTH = 14;       // 探索する深さの最大値
+const int MAX_DEPTH = 12;       // 探索する深さの最大値
 const int COMPLETE  = INT_MAX;  // 盤面完成
 
 unsigned long long xor128(){
@@ -88,7 +89,6 @@ const int dz[4] = {-B_WIDTH, 1, B_WIDTH, -1};
 
 int board[BOARD_SIZE];      // 15パズル・ボード
 int boardCopy[BOARD_SIZE];  // コピーボード
-int boardTemp[BOARD_SIZE];  // 一時保存用
 
 ull table[BOARD_SIZE][STATE_NUM];  // zoblist hash用テーブル
 ull completeHash; // 完成形のボードのハッシュ値
@@ -156,6 +156,43 @@ class Puzzle15{
     /*
      * 盤面全体のマンハッタン距離を求める
      */
+    int calcND(){
+      int dist = 0;
+
+      for(int y = 1; y <= HEIGHT; y++){
+        for(int x = 1; x <= WIDTH; x++){
+          int z = getZ(y,x);
+
+          int dy = abs(y - correctY[board[z]]);
+          int dx = abs(x - correctX[board[z]]);
+
+          dist += 3 * min(dy, dx) + 5 * (max(dy, dx) - min(dy, dx));
+        }
+      }
+
+      return dist;
+    }
+
+    bool checkUpperLine(){
+      if(board[7] != 1) return false;
+      if(board[8] != 2) return false;
+      if(board[9] != 3) return false;
+      if(board[10] != 4) return false;
+      return true;
+    }
+
+    bool checkLeftLine(){
+      if(board[7] != 1) return false;
+      if(board[13] != 5) return false;
+      if(board[19] != 9) return false;
+      if(board[25] != 13) return false;
+      return true;
+    }
+
+
+    /*
+     * 盤面全体のマンハッタン距離を求める
+     */
     int calcMD(){
       int dist = 0;
 
@@ -167,6 +204,27 @@ class Puzzle15{
           int dx = correctX[board[z]];
 
           dist += abs(y-dy) + abs(x-dx);
+        }
+      }
+
+      return dist;
+    }
+
+    /*
+     * IDの値を求める
+     */
+    int calcID(){
+      int dist = 0;  
+
+      for(int y = 1; y <= HEIGHT; y++){
+        for(int x = 1; x <= WIDTH; x++){
+          int z = getZ(y,x);
+
+          int dy = correctY[board[z]];
+          int dx = correctX[board[z]];
+
+          int d = 3 * abs(y-dy) + abs(x-dx);
+          dist += d / 3 + d % 3;
         }
       }
 
@@ -201,10 +259,12 @@ class Puzzle15{
 
     int calcEval(){
       int value = 0;
-      ull hash = getBoardHash();
 
-      if(hash == completeHash) return COMPLETE;
       value -= calcMD();
+      value -= calcND();
+
+      if(checkUpperLine()) value += 100;
+      if(checkLeftLine()) value += 100;
 
       return value;
     }
@@ -236,6 +296,7 @@ class Puzzle15{
       init(input);
 
       int moveCount = 0;
+      int beforeEmpty = UNKNOWN;
 
       while(true){
         map<ull, bool> checkList;
@@ -260,7 +321,7 @@ class Puzzle15{
           int value = calcEval();
 
           // 評価値が更新された場合
-          if(maxValue < value && node.depth > 0){
+          if(maxValue < value && node.depth > 0 && beforeEmpty != node.z){
             maxValue = value;
             //fprintf(stderr,"Update maxValue = %d, z = %d, depth = %d\n", maxValue, node.z, node.depth);
             bestZ = node.z;
@@ -276,6 +337,7 @@ class Puzzle15{
 
             // 移動先が壁ならスキップ
             if(board[nz] == WALL) continue;
+            if(node.z == UNKNOWN && nz == beforeEmpty) continue;
 
             moveBoard(nz);
 
@@ -283,11 +345,11 @@ class Puzzle15{
             nnode.depth = node.depth + 1;
             if(node.z == UNKNOWN){
               nnode.z = nz;
+              que.push(nnode);
             }else{
               nnode.z = node.z;
+              que.push(nnode);
             }
-
-            que.push(nnode);
 
             moveBoard(z);
           }
@@ -295,6 +357,8 @@ class Puzzle15{
 
         // 盤面を元に戻す
         memcpy(board, boardCopy, sizeof(boardCopy));
+
+        beforeEmpty = searchEmpty();
 
         if(bestZ == UNKNOWN){
           fprintf(stderr,"Err!\n");
@@ -313,7 +377,9 @@ class Puzzle15{
         }
 
         moveCount++;
-        showBoard();
+        //showBoard();
+
+        if(moveCount > 90) break;
       }
 
       fprintf(stderr,"move count = %d\n", moveCount);
@@ -353,7 +419,8 @@ int main(){
       int z = getZ(y,x);
 
       if(str != "*"){
-        input[z] = stoi(str);
+        input[z] = atoi(str.c_str());
+        //input[z] = stoi(str);
       }else{
         input[z] = EMPTY;
       }
