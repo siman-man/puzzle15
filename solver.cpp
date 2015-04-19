@@ -32,11 +32,10 @@ const int WALL      = 17; // 壁
 const int STATE_NUM = 18; // 状態の数(0-17)
 
 const int UNKNOWN   = -1;       // 未定
-int MAX_DEPTH = 60;       // 探索する深さの最大値
 const int COMPLETE  = INT_MAX;  // 盤面完成
 
-int DEPTH_LIMIT = 10;     // 一番深く潜る階層の上限
-int BEAM_WIDTH = 2000;     // ビーム幅
+int MAX_DEPTH   = 70;       // 探索する深さの最大値
+int BEAM_WIDTH  = 2000;     // ビーム幅
 
 unsigned long long xor128(){
   static unsigned long long rx=123456789, ry=362436069, rz=521288629, rw=88675123;
@@ -44,8 +43,6 @@ unsigned long long xor128(){
   rx=ry; ry=rz; rz=rw;
   return (rw=(rw^(rw>>19))^(rt^(rt>>8)));
 }
-
-map<ull, bool> dfsHistory;
 
 // 完成した盤面
 char completeBoard[BOARD_SIZE] = {
@@ -58,7 +55,7 @@ char completeBoard[BOARD_SIZE] = {
 };
 
 // (y,x)の2次元座標を1次元に変換するための対応表
-const int z_map[B_HEIGHT][B_WIDTH] = {
+const char z_map[B_HEIGHT][B_WIDTH] = {
   {  0,  1,  2,  3,  4,  5},
   {  6,  7,  8,  9, 10, 11},
   { 12, 13, 14, 15, 16, 17},
@@ -67,8 +64,8 @@ const int z_map[B_HEIGHT][B_WIDTH] = {
   { 30, 31, 32, 33, 34, 35}
 };
 
-// 本来のポジション
-const int correctY[17] = {
+// 本来のポジション(Y座標)
+const char correctY[17] = {
   0,
   1,1,1,1,
   2,2,2,2,
@@ -76,7 +73,8 @@ const int correctY[17] = {
   4,4,4,4
 };
 
-const int correctX[17] = {
+// 本来のポジション(X座標)
+const char correctX[17] = {
   0,
   1,2,3,4,
   1,2,3,4,
@@ -92,12 +90,12 @@ const int WD[HEIGHT][WIDTH] = {
 };
 
 // 2次元座標を1次元に変換
-inline int getZ(int y, int x){
+inline char getZ(int y, int x){
   return z_map[y][x];
 }
 
 // 盤面の「上, 右, 下, 左]」移動
-const int dz[4] = {-B_WIDTH, 1, B_WIDTH, -1};
+const char dz[4] = {-B_WIDTH, 1, B_WIDTH, -1};
 
 char board[BOARD_SIZE];      // 15パズル・ボード
 char boardCopy[BOARD_SIZE];  // コピーボード
@@ -125,6 +123,7 @@ struct Node{
   char depth;
   char z;
   char beforeZ;
+  char emptyZ;
   int value;
   ull hashValue;
 
@@ -132,6 +131,7 @@ struct Node{
     this->depth   = 0;
     this->z       = UNKNOWN;
     this->beforeZ = UNKNOWN;
+    this->value   = UNKNOWN;
   }
 
   bool operator >(const Node &e) const{
@@ -165,26 +165,6 @@ class Puzzle15{
      */
     inline void moveBoard(int z1, int z2){
       swap(board[z1], board[z2]);
-    }
-
-    /*
-     * 盤面全体のマンハッタン距離を求める
-     */
-    int calcND(){
-      int dist = 0;
-
-      for(int y = 1; y <= HEIGHT; y++){
-        for(int x = 1; x <= WIDTH; x++){
-          int z = getZ(y,x);
-
-          int dy = abs(y - correctY[board[z]]);
-          int dx = abs(x - correctX[board[z]]);
-
-          dist += 3 * min(dy, dx) + 5 * (max(dy, dx) - min(dy, dx));
-        }
-      }
-
-      return dist;
     }
 
     bool beforeUpperLine(){
@@ -239,9 +219,8 @@ class Puzzle15{
     /*
      * 盤面全体のマンハッタン距離を求める
      */
-    int calcMD(){
+    int calcMD(int ez){
       int dist = 0;
-      int ez = searchEmpty();
       int ey = ez / B_WIDTH + 1;
       int ex = ex % B_WIDTH + 1;
 
@@ -262,27 +241,6 @@ class Puzzle15{
           }
 
           //dist += WD[dy][dx] + WD[ny][nx];
-        }
-      }
-
-      return dist;
-    }
-
-    /*
-     * IDの値を求める
-     */
-    int calcID(){
-      int dist = 0;  
-
-      for(int y = 1; y <= HEIGHT; y++){
-        for(int x = 1; x <= WIDTH; x++){
-          int z = getZ(y,x);
-
-          int dy = correctY[board[z]];
-          int dx = correctX[board[z]];
-
-          int d = 3 * abs(y-dy) + abs(x-dx);
-          dist += d / 3 + d % 3;
         }
       }
 
@@ -315,15 +273,18 @@ class Puzzle15{
       return node;
     }
 
-    int calcEval(){
+    int calcEval(int emptyZ){
       int value = 0;
 
       ull hash = getBoardHash();
 
       if(hash == completeHash) return COMPLETE;
 
-      value -= calcMD();
-      //value -= calcND();
+      value -= calcMD(emptyZ);
+
+      if(board[28] <= 4) value -= 5;
+      if(board[7] == 13 || board[7] == 14 || board[7] == 15) value -= 10;
+      if(board[10] == 13 || board[10] == 14 || board[10] == 15) value -= 10;
 
       if(checkUpperLine()){
         value += 1000;
@@ -367,7 +328,7 @@ class Puzzle15{
     /*
      * 盤面のハッシュ値を取得(zoblist hash)
      */
-    ull getBoardHash(){
+    inline ull getBoardHash(){
       ull value = 0;
 
       for(int y = 1; y <= HEIGHT; y++){
@@ -379,57 +340,6 @@ class Puzzle15{
       }
 
       return value;
-    }
-
-    /*
-     * 15パズルソルバー(深さ優先型)
-     *   input: 初期盤面
-     */
-    void solveDFS(char *input){
-      init(input);
-
-      // 初期の空白マス
-      int z = searchEmpty();
-
-      for(int i = 0; i < 4; i++){
-        int nz = z + dz[i];
-
-        // 移動先が壁ならスキップ
-        if(board[nz] == WALL) continue;
-
-        dfs(z, nz, 0);
-      }
-    }
-
-    void dfs(int z1, int z2, int stepCount = 0){
-      // 上限を超えたら探索終了
-      if(stepCount > DEPTH_LIMIT) return;
-
-      //fprintf(stderr,"DFS: stepCount = %d\n", stepCount);
-
-      moveBoard(z1, z2);
-
-      ull hash = getBoardHash();
-
-      if(hash == completeHash){
-        DEPTH_LIMIT = stepCount;
-        fprintf(stderr,"COMPLETE! - stepCount = %d\n", stepCount);
-        showBoard();
-        return;
-      }
-
-      if(!dfsHistory[hash]){
-        for(int i = 0; i < 4; i++){
-          int nz = z2 + dz[i];
-          // 移動先が壁ならスキップ
-          if(board[nz] == WALL || nz == z1) continue;
-
-          dfs(z2, nz, stepCount + 1);
-        }
-      }
-
-      moveBoard(z2, z1);
-      //if(stepCount > 0) dfsHistory[hash] = true;
     }
 
     /*
@@ -454,6 +364,7 @@ class Puzzle15{
         }
 
         Node root = createNode();
+        root.emptyZ = searchEmpty();
 
         // 現在の盤面を保存
         memcpy(boardCopy, board, sizeof(board));
@@ -477,38 +388,25 @@ class Puzzle15{
             que.push(n);
           }
 
-          /*
-          map<int, int>::iterator it = directCount.begin();
-
-          while(it != directCount.end()){
-            int z = (*it).first;
-            int cnt = (*it).second;
-
-            fprintf(stderr,"z = %d, count = %d\n", z, cnt);
-            it++;
+          if(!pque.empty()){
+            priority_queue< Node, vector<Node>, greater<Node> > temp_pque;
+            pque = temp_pque;
           }
-          */
-
-          priority_queue< Node, vector<Node>, greater<Node> > temp_pque;
-          pque = temp_pque;
 
           while(!que.empty()){
             Node node = que.front(); que.pop();
             memcpy(board, node.board, sizeof(board));
 
-            int z = searchEmpty();
+            int z = node.emptyZ;
             int value = node.value;
 
             // 評価値が更新された場合
             if(maxValue < value && node.depth > 0 && beforeEmpty != node.z){
               maxValue = value;
-              //fprintf(stderr,"Update maxValue = %d, z = %d, depth = %d\n", maxValue, node.z, node.depth);
               bestZ = node.z;
             }else if(maxValue > 0 && node.depth > 0 && value < 0){
-              //fprintf(stderr,"diff maxValue = %d, value = %d\n", maxValue, value);
               continue;
             }else if(maxValue == COMPLETE){
-              //fprintf(stderr,"COMPLETE!, node.depth = %d\n", node.depth);
               break;
             }
 
@@ -524,6 +422,7 @@ class Puzzle15{
               if(board[nz] == WALL) continue;
               // 前の移動先と一緒であれば探索しない
               if(node.beforeZ == nz) continue;
+              // 前の局面と同じにならないように
               if(node.z == UNKNOWN && nz == beforeEmpty) continue;
 
               moveBoard(z, nz);
@@ -531,7 +430,8 @@ class Puzzle15{
               Node nnode = createNode();
               nnode.depth = node.depth + 1;
               nnode.beforeZ = z;
-              nnode.value = calcEval();
+              nnode.emptyZ = nz;
+              nnode.value = calcEval(nz);
 
               nnode.z = (node.z == UNKNOWN)? nz : node.z;
 
@@ -545,6 +445,7 @@ class Puzzle15{
         // 盤面を元に戻す
         memcpy(board, boardCopy, sizeof(boardCopy));
 
+        // 盤面が完成しない
         if(bestZ == UNKNOWN){
           fprintf(stderr,"Err! maxValue = %d\n", maxValue);
           showBoard();
@@ -568,13 +469,7 @@ class Puzzle15{
           break;
         }
 
-        if(calcEval() > 0){
-          //MAX_DEPTH = 16;
-        }
-
         //showBoard();
-
-        //if(moveCount > 120) break;
       }
 
       //fprintf(stdout,"move_count:%d\n", moveCount);
@@ -623,7 +518,6 @@ int main(){
   }
 
   vector<int> answer;
-  //pz15.solveDFS(input);
   answer = pz15.solve(input);
 
   for(int i = 0; i < answer.size(); i++){
