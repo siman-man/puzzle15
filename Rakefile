@@ -3,6 +3,7 @@ task :default do
 end
 
 task :run do
+  system("g++ -O2 -o solver solver.cpp") 
   system("./solver < test_case3.txt")
 end
 
@@ -22,6 +23,11 @@ task :check do
   system("./solver < test_case8.txt >> result.txt")
   system("./solver < test_case9.txt >> result.txt")
   system("./solver < test_case10.txt >> result.txt")
+  system("./solver < test_case11.txt >> result.txt")
+  system("./solver < test_case12.txt >> result.txt")
+  system("./solver < test_case13.txt >> result.txt")
+  system("./solver < test_case14.txt >> result.txt")
+  system("./solver < test_case15.txt >> result.txt")
   system("cat result.txt")
   system("ruby check.rb")
 end
